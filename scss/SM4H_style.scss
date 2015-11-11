@@ -28,8 +28,6 @@
 
 /* =============== 1.0 Variables =============== */
 
-/* =============== 1.0 Variables =============== */
-
 /* Media Queries */
 $small: "screen and (min-width: 768px)";
 $medium: "screen and (min-width: 992px)";
@@ -289,12 +287,12 @@ header {
 
 
 #site-banner {
-	background: url(assets/banner/banner_home.jpg) center center no-repeat;
+	background: url(../assets/banner/banner_home.jpg) center center no-repeat;
 	background-size: cover;
 }
 
 #fleet-page #site-banner,#terms-page #site-banner, #excess-page #site-banner {
-	background: url(assets/banner/banner_fleet.jpg) top center no-repeat;
+	background: url(../assets/banner/banner_fleet.jpg) top center no-repeat;
 	background-size: cover;
 
 	.banner-highlight {
