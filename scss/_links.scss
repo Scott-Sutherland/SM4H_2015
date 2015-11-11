@@ -1,0 +1,23 @@
+/* Links and Buttons */
+
+// Text Link
+
+a.text-link {
+	color: $secondary;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+a.cta {
+	background: $secondary;
+	color: white;
+	display: inline-block;
+	padding: 10px 20px;
+
+	&:hover {
+		background: $primary;
+		text-decoration: none;
+	}
+}

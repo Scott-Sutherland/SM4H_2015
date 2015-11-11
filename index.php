@@ -1,17 +1,21 @@
-<?php
-/**
- * Front to the WordPress application. This file doesn't do anything, but loads
- * wp-blog-header.php which does and tells WordPress to load the theme.
- *
- * @package WordPress
- */
+<?php get_header(); ?>
+	
+	<div id="site-banner">
+		<div class="banner-highlight">
+			<h2>Whoops - This page is not quite ready.</h2>
+		</div>
+	</div>
+	<!-- End #site-banner -->
+	
+	<div id="site-content">
+	
+		<div class="coming-soon">
+			<span class="glyphicon glyphicon-cog"></span>
+			<h3>We are busy working on this page</h3>
+			<p>Check back soon for more features</p>
+		</div>			
 
-/**
- * Tells WordPress to load the WordPress theme and output it.
- *
- * @var bool
- */
-define('WP_USE_THEMES', true);
+	</div>
 
-/** Loads the WordPress Environment and Template */
-require( dirname( __FILE__ ) . '/wp-blog-header.php' );
+
+<?php get_footer(); ?>
