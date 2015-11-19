@@ -1,10 +1,21 @@
-# Switch rewrite engine off in case this was installed under HostPay.
-RewriteEngine Off
+Order deny,allow
+Deny from all
+Allow from 86.175.139.181
+Allow from 84.19.38.242
 
-SetEnv DEFAULT_PHP_VERSION 53
-
-DirectoryIndex index.cgi index.php
-
+RewriteEngine On
+RewriteBase /
+RewriteCond %{HTTP_HOST} ^scottishmotorhomes4hire.co.uk [NC]
+RewriteRule ^(.*)$ http://www.scottishmotorhomes4hire.co.uk$1 [L,R=301]
+RedirectMatch 301 ^/development/$ http://dev.scottishmotorhomes4hire.co.uk/$1
 # BEGIN WordPress
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /development/
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /development/index.php [L]
+</IfModule>
 
 # END WordPress
