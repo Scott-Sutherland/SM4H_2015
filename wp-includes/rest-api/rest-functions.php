@@ -20,10 +20,24 @@
  *                          multiple methods. Default empty array.
  * @param bool   $override  Optional. If the route already exists, should we override it? True overrides,
  *                          false merges (with newer overriding if duplicate keys exist). Default false.
+ * @return bool True on success, false on error.
  */
 function register_rest_route( $namespace, $route, $args = array(), $override = false ) {
 	/** @var WP_REST_Server $wp_rest_server */
 	global $wp_rest_server;
+
+	if ( empty( $namespace ) ) {
+		/*
+		 * Non-namespaced routes are not allowed, with the exception of the main
+		 * and namespace indexes. If you really need to register a
+		 * non-namespaced route, call `WP_REST_Server::register_route` directly.
+		 */
+		_doing_it_wrong( 'register_rest_route', 'Routes must be namespaced with plugin or theme name and version.', '4.4.0' );
+		return false;
+	} else if ( empty( $route ) ) {
+		_doing_it_wrong( 'register_rest_route', 'Route must be specified.', '4.4.0' );
+		return false;
+	}
 
 	if ( isset( $args['callback'] ) ) {
 		// Upgrade a single set to multiple.
@@ -44,62 +58,9 @@ function register_rest_route( $namespace, $route, $args = array(), $override = f
 		$arg_group = array_merge( $defaults, $arg_group );
 	}
 
-	if ( $namespace ) {
-		$full_route = '/' . trim( $namespace, '/' ) . '/' . trim( $route, '/' );
-	} else {
-		/*
-		 * Non-namespaced routes are not allowed, with the exception of the main
-		 * and namespace indexes. If you really need to register a
-		 * non-namespaced route, call `WP_REST_Server::register_route` directly.
-		 */
-		_doing_it_wrong( 'register_rest_route', 'Routes must be namespaced with plugin name and version', '4.4.0' );
-
-		$full_route = '/' . trim( $route, '/' );
-	}
-
+	$full_route = '/' . trim( $namespace, '/' ) . '/' . trim( $route, '/' );
 	$wp_rest_server->register_route( $namespace, $full_route, $args, $override );
-}
-
-/**
- * Registers a new field on an existing WordPress object type.
- *
- * @since 4.4.0
- *
- * @global array $wp_rest_additional_fields Holds registered fields, organized
- *                                          by object type.
- *
- * @param string|array $object_type Object(s) the field is being registered
- *                                  to, "post"|"term"|"comment" etc.
- * @param string $attribute         The attribute name.
- * @param array  $args {
- *     Optional. An array of arguments used to handle the registered field.
- *
- *     @type string|array|null $get_callback    Optional. The callback function used to retrieve the field
- *                                              value. Default is 'null', the field will not be returned in
- *                                              the response.
- *     @type string|array|null $update_callback Optional. The callback function used to set and update the
- *                                              field value. Default is 'null', the value cannot be set or
- *                                              updated.
- *     @type string|array|null $schema          Optional. The callback function used to create the schema for
- *                                              this field. Default is 'null', no schema entry will be returned.
- * }
- */
-function register_api_field( $object_type, $attribute, $args = array() ) {
-	$defaults = array(
-		'get_callback'    => null,
-		'update_callback' => null,
-		'schema'          => null,
-	);
-
-	$args = wp_parse_args( $args, $defaults );
-
-	global $wp_rest_additional_fields;
-
-	$object_types = (array) $object_type;
-
-	foreach ( $object_types as $object_type ) {
-		$wp_rest_additional_fields[ $object_type ][ $attribute ] = $args;
-	}
+	return true;
 }
 
 /**
@@ -531,7 +492,7 @@ function rest_output_link_wp_head() {
 		return;
 	}
 
-	echo "<link rel='https://github.com/WP-API/WP-API' href='" . esc_url( $api_root ) . "' />\n";
+	echo "<link rel='https://api.w.org/' href='" . esc_url( $api_root ) . "' />\n";
 }
 
 /**
@@ -550,7 +511,7 @@ function rest_output_link_header() {
 		return;
 	}
 
-	header( 'Link: <' . esc_url_raw( $api_root ) . '>; rel="https://github.com/WP-API/WP-API"', false );
+	header( 'Link: <' . esc_url_raw( $api_root ) . '>; rel="https://api.w.org/"', false );
 }
 
 /**
