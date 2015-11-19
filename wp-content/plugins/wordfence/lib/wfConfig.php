@@ -96,6 +96,7 @@ class wfConfig {
 				'blockedTime' => "300",
 				'email_summary_interval' => 'biweekly',
 				'email_summary_excluded_directories' => 'wp-content/cache,wp-content/wfcache,wp-content/plugins/wordfence/tmp',
+				'allowed404s' => "/favicon.ico\n/apple-touch-icon*.png\n/*@2x.png",
 			)
 		),
 		array( //level 1
@@ -185,6 +186,7 @@ class wfConfig {
 				'blockedTime' => "300",
 				'email_summary_interval' => 'biweekly',
 				'email_summary_excluded_directories' => 'wp-content/cache,wp-content/wfcache,wp-content/plugins/wordfence/tmp',
+				'allowed404s' => "/favicon.ico\n/apple-touch-icon*.png\n/*@2x.png",
 			)
 		),
 		array( //level 2
@@ -274,6 +276,7 @@ class wfConfig {
 				'blockedTime' => "300",
 				'email_summary_interval' => 'biweekly',
 				'email_summary_excluded_directories' => 'wp-content/cache,wp-content/wfcache,wp-content/plugins/wordfence/tmp',
+				'allowed404s' => "/favicon.ico\n/apple-touch-icon*.png\n/*@2x.png",
 			)
 		),
 		array( //level 3
@@ -363,6 +366,7 @@ class wfConfig {
 				'blockedTime' => "1800",
 				'email_summary_interval' => 'biweekly',
 				'email_summary_excluded_directories' => 'wp-content/cache,wp-content/wfcache,wp-content/plugins/wordfence/tmp',
+				'allowed404s' => "/favicon.ico\n/apple-touch-icon*.png\n/*@2x.png",
 			)
 		),
 		array( //level 4
@@ -452,6 +456,7 @@ class wfConfig {
 				'blockedTime' => "7200",
 				'email_summary_interval' => 'biweekly',
 				'email_summary_excluded_directories' => 'wp-content/cache,wp-content/wfcache,wp-content/plugins/wordfence/tmp',
+				'allowed404s' => "/favicon.ico\n/apple-touch-icon*.png\n/*@2x.png",
 			)
 		)
 	);
@@ -502,7 +507,7 @@ class wfConfig {
 		}
 		foreach(self::$securityLevels[2]['otherParams'] as $key => $val){
 			if(isset($_POST[$key])){
-				$ret[$key] = $_POST[$key];
+				$ret[$key] = stripslashes($_POST[$key]);
 			} else {
 				error_log("Missing options param \"$key\" when parsing parameters.");
 			}
@@ -525,7 +530,7 @@ class wfConfig {
 		self::$cache = array();
 	}
 	public static function getHTML($key){
-		return wp_kses(self::get($key), array());
+		return esc_html(self::get($key));
 	}
 	public static function inc($key){
 		$val = self::get($key, false);
@@ -579,16 +584,13 @@ class wfConfig {
 			}
 		}
 
-		if(! isset(self::$cache[$key])){ 
+		if(!array_key_exists($key, self::$cache)){ 
 			$val = self::loadFromDiskCache($key);
 			//$val = self::getDB()->querySingle("select val from " . self::table() . " where name='%s'", $key);
-			if(isset($val)){
-				self::$cache[$key] = $val;
-			} else {
-				self::$cache[$key] = $default;
-			}
+			self::$cache[$key] = $val;
 		}
-		return self::$cache[$key];
+		$val = self::$cache[$key];
+		return $val !== null ? $val : $default;
 	}
 	public static function loadFromDiskCache($key){
 		if(! self::$diskCacheDisabled){

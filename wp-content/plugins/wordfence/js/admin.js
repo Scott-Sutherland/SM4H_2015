@@ -1371,6 +1371,7 @@
 				});
 			},
 			completeWhois: function(res) {
+				var self = this;
 				if (res.ok && res.result && res.result.rawdata && res.result.rawdata.length > 0) {
 					var rawhtml = "";
 					for (var i = 0; i < res.result.rawdata.length; i++) {
@@ -1381,7 +1382,6 @@
 						if (this.getQueryParam('wfnetworkblock')) {
 							redStyle = " style=\"color: #F00;\"";
 						}
-						var self = this;
 
 						function wfm21(str, ipRange, offset, totalStr) {
 							var ips = ipRange.split(/\s*\-\s*/);
@@ -1391,10 +1391,32 @@
 								var ip2num = self.inet_aton(ips[1]);
 								totalIPs = ip2num - ip1num + 1;
 							}
-							return "<a href=\"admin.php?page=WordfenceRangeBlocking&wfBlockRange=" + ipRange + "\"" + redStyle + ">" + ipRange + " [" + (!isNaN(totalIPs) ? "<strong>" + totalIPs + "</strong> addresses in this network." : "") + "Click to block this network]<\/a>";
+							return "<a href=\"admin.php?page=WordfenceRangeBlocking&wfBlockRange=" + ipRange + "\"" + redStyle + ">" + ipRange + " [" + (!isNaN(totalIPs) ? "<strong>" + totalIPs + "</strong> addresses in this network. " : "") + "Click to block this network]<\/a>";
+						}
+
+						function buildRangeLink2(str, octet1, octet2, octet3, octet4, cidrRange) {
+
+							octet3 = octet3.length > 0 ? octet3 : '0';
+							octet4 = octet4.length > 0 ? octet4 : '0';
+
+							var rangeStart = [octet1, octet2, octet3, octet4].join('.');
+							var rangeStartNum = self.inet_aton(rangeStart);
+							cidrRange = parseInt(cidrRange, 10);
+							if (!isNaN(rangeStartNum) && cidrRange > 0 && cidrRange < 32) {
+								var rangeEndNum = rangeStartNum;
+								for (var i = 32, j = 1; i >= cidrRange; i--, j *= 2) {
+									rangeEndNum |= j;
+								}
+								rangeEndNum = rangeEndNum >>> 0;
+								var ipRange = self.inet_ntoa(rangeStartNum) + '-' + self.inet_ntoa(rangeEndNum);
+								var totalIPs = rangeEndNum - rangeStartNum;
+								return "<a href=\"admin.php?page=WordfenceRangeBlocking&wfBlockRange=" + ipRange + "\"" + redStyle + ">" + ipRange + " [" + (!isNaN(totalIPs) ? "<strong>" + totalIPs + "</strong> addresses in this network. " : "") + "Click to block this network]<\/a>";
+							}
+							return str;
 						}
 
 						res.result.rawdata[i] = res.result.rawdata[i].replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:.]{3,} - [a-f0-9:.]{3,})/i, wfm21);
+						res.result.rawdata[i] = res.result.rawdata[i].replace(/(\d{1,3})\.(\d{1,3})\.?(\d{0,3})\.?(\d{0,3})\/(\d{1,3})/i, buildRangeLink2);
 						rawhtml += res.result.rawdata[i] + "<br />";
 					}
 					jQuery('#wfrawhtml').html(rawhtml);
@@ -1402,7 +1424,7 @@
 					jQuery('#wfrawhtml').html('<span style="color: #F00;">Sorry, but no data for that IP or domain was found.</span>');
 				}
 			},
-			blockIPUARange: function(ipRange, uaRange, referer, reason) {
+			blockIPUARange: function(ipRange, hostname, uaRange, referer, reason) {
 				if (!/\w+/.test(reason)) {
 					this.colorbox('300px', "Please specify a reason", "You forgot to include a reason you're blocking this IP range. We ask you to include this for your own record keeping.");
 					return;
@@ -1410,8 +1432,10 @@
 				ipRange = ipRange.replace(/ /g, '').toLowerCase();
 				if (ipRange) {
 					var range = ipRange.split('-'),
+						validRange;
+					if (range.length !== 2) {
 						validRange = false;
-					if (range[0].match(':')) {
+					} else if (range[0].match(':')) {
 						validRange = this.inet_pton(range[0]) !== false && this.inet_pton(range[1]) !== false;
 					} else if (range[0].match('.')) {
 						validRange = this.inet_aton(range[0]) !== false && this.inet_aton(range[1]) !== false;
@@ -1421,13 +1445,18 @@
 						return;
 					}
 				}
-				if (!(/\w+/.test(ipRange) || /\w+/.test(uaRange) || /\w+/.test(referer))) {
-					this.colorbox('300px', 'Specify an IP range or Browser pattern', "Please specify either an IP address range or a web browser pattern to match.");
+				if (hostname && !/^[a-z0-9\.\*\-]+$/i.test(hostname)) {
+					this.colorbox('300px', 'Specify a valid hostname', '<i>' + this.htmlEscape(hostname) + '</i> is not valid hostname');
+					return;
+				}
+				if (!(/\w+/.test(ipRange) || /\w+/.test(uaRange) || /\w+/.test(referer) || /\w+/.test(hostname))) {
+					this.colorbox('300px', 'Specify an IP range, Hostname or Browser pattern', "Please specify either an IP address range, Hostname or a web browser pattern to match.");
 					return;
 				}
 				var self = this;
 				this.ajax('wordfence_blockIPUARange', {
 					ipRange: ipRange,
+					hostname: hostname,
 					uaRange: uaRange,
 					referer: referer,
 					reason: reason

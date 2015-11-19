@@ -410,6 +410,10 @@ class wordfence {
 			}
 		}
 
+		if (wfConfig::get('other_hideWPVersion')) {
+			wfUtils::hideReadme();
+		}
+
 		//Must be the final line
 	}
 	private static function doEarlyAccessLogging(){
@@ -486,7 +490,7 @@ class wordfence {
 		add_action('wordfence_hourly_cron', 'wordfence::hourlyCron');
 		add_action('plugins_loaded', 'wordfence::veryFirstAction');
 		add_action('init', 'wordfence::initAction');
-		add_action('template_redirect', 'wordfence::templateRedir', 0);
+		add_action('template_redirect', 'wordfence::templateRedir', 1001);
 		add_action('shutdown', 'wordfence::shutdownAction');
 
 		if(version_compare(PHP_VERSION, '5.4.0') >= 0){
@@ -495,6 +499,9 @@ class wordfence {
 			add_action('wp_authenticate','wordfence::authActionOld', 1, 2);
 		}
 		add_filter('authenticate', 'wordfence::authenticateFilter', 99, 3);
+		if (self::isLockedOut(wfUtils::getIP())) {
+			add_filter('xmlrpc_enabled', '__return_false');
+		}
 
 		add_action('login_init','wordfence::loginInitAction');
 		add_action('wp_login','wordfence::loginAction');
@@ -517,6 +524,12 @@ class wordfence {
 		add_filter('wp_redirect', 'wordfence::wpRedirectFilter', 99, 2);
 		add_filter('pre_comment_approved', 'wordfence::preCommentApprovedFilter', '99', 2);
 		//html|xhtml|atom|rss2|rdf|comment|export
+		if(wfConfig::get('other_hideWPVersion')){
+			add_filter('style_loader_src', 'wordfence::replaceVersion');
+			add_filter('script_loader_src', 'wordfence::replaceVersion');
+
+			add_action('upgrader_process_complete', 'wordfence::hideReadme');
+		}
 		add_filter('get_the_generator_html', 'wordfence::genFilter', 99, 2);
 		add_filter('get_the_generator_xhtml', 'wordfence::genFilter', 99, 2);
 		add_filter('get_the_generator_atom', 'wordfence::genFilter', 99, 2);
@@ -547,6 +560,8 @@ class wordfence {
 				add_action('post_submitbox_start', 'wordfence::postSubmitboxStart');
 			}
 		}
+
+		add_action('request', 'wordfence::preventAuthorNScans');
 	}
 	/*
   	public static function cronAddSchedules($schedules){
@@ -603,7 +618,7 @@ class wordfence {
 		$isCrawler = false;
 		if($UA){
 			$b = $browscap->getBrowser($UA);
-			if(!empty($b['Crawler'])){
+			if(!empty($b['Crawler']) || wfCrawl::isGoogleCrawler()){
 				$isCrawler = true;
 			}
 		}
@@ -613,6 +628,10 @@ class wordfence {
 			header('Content-type: text/javascript');
 			header("Connection: close");
 			header("Content-Length: 0");
+			header("X-Robots-Tag: noindex");
+			if (!$isCrawler) {
+				setcookie('wordfence_verifiedHuman', wp_create_nonce('wordfence_verifiedHuman' . $UA . wfUtils::getIP()), time() + 86400, '/');
+			}
 		}
 		flush();
 		if(! $isCrawler){
@@ -718,12 +737,16 @@ class wordfence {
 		if(self::isLockedOut($IP)){
 			require('wfLockedOut.php');
 		}
-		$email = $_POST['user_login'];
-		if(empty($email)){ return; }
-		$user = get_user_by('email', $_POST['user_login']);
+		if(empty($_POST['user_login'])){ return; }
+		$value = trim($_POST['user_login']);
+		$user  = get_user_by('login', $value);
+		if (!$user) {
+			$user = get_user_by('email', $value);
+		}
+
 		if($user){
 			if(wfConfig::get('alertOn_lostPasswdForm')){
-				wordfence::alert("Password recovery attempted", "Someone tried to recover the password for user with email address: " . wp_kses($email, array()), $IP);
+				wordfence::alert("Password recovery attempted", "Someone tried to recover the password for user with email address: " . wp_kses($user->user_email, array()), $IP);
 			}
 		}
 		if(wfConfig::get('loginSecurityEnabled')){
@@ -768,7 +791,7 @@ class wordfence {
 
 			$email = trim($_POST['email']);
 			global $wpdb;
-			$ws = $wpdb->get_results("SELECT ID, user_login FROM $wpdb->users");
+			$ws = $wpdb->get_results($wpdb->prepare("SELECT ID, user_login FROM $wpdb->users WHERE user_email = %s", $email));
 			foreach($ws as $user){
 				$userDat = get_userdata($user->ID);
 				if(wfUtils::isAdmin($userDat)){
@@ -845,6 +868,41 @@ class wordfence {
 		if(wfConfig::get('firewallEnabled')){
 			$wfLog = self::getLog();
 			$wfLog->firewallBadIPs();
+
+			$IP = wfUtils::getIP();
+			if($wfLog->isWhitelisted($IP)){
+				return;
+			}
+			if (wfConfig::get('neverBlockBG') == 'neverBlockUA' && wfCrawl::isGoogleCrawler()) {
+				return;
+			}
+			if (wfConfig::get('neverBlockBG') == 'neverBlockVerified' && wfCrawl::isVerifiedGoogleCrawler()) {
+				return;
+			}
+
+			if(wfConfig::get('blockFakeBots')){
+				if(wfCrawl::isGooglebot() && (! wfCrawl::verifyCrawlerPTR($wfLog->getGooglePattern(), $IP) )){
+					$wfLog->blockIP($IP, "Fake Google crawler automatically blocked");
+					wordfence::status(2, 'info', "Blocking fake Googlebot at IP $IP");
+					$wfLog->do503(3600, "Fake Google crawler automatically blocked.");
+				}
+			}
+			if(wfConfig::get('bannedURLs', false)){
+				$URLs = explode(',', wfConfig::get('bannedURLs'));
+				foreach($URLs as $URL){
+					if($_SERVER['REQUEST_URI'] == trim($URL)){
+						$wfLog->blockIP($IP, "Accessed a banned URL.");
+						$wfLog->do503(3600, "Accessed a banned URL.");
+						//exits
+					}
+				}
+			}
+
+			if(wfConfig::get('other_blockBadPOST') == '1' && $_SERVER['REQUEST_METHOD'] == 'POST' && empty($_SERVER['HTTP_USER_AGENT']) && empty($_SERVER['HTTP_REFERER'])){
+				$wfLog->blockIP($IP, "POST received with blank user-agent and referer");
+				$wfLog->do503(3600, "POST received with blank user-agent and referer");
+				//exits
+			}
 		}
 	}
 	public static function loginAction($username){
@@ -982,7 +1040,7 @@ class wordfence {
 				if($blacklist = wfConfig::get('loginSec_userBlacklist')){
 					$users = explode(',', $blacklist);
 					foreach($users as $user){
-						if(strtolower($_POST['log']) == strtolower($user)){
+						if(strtolower($username) == strtolower($user)){
 							self::getLog()->blockIP($IP, "Blocked by login security setting.");
 							$secsToGo = wfConfig::get('blockedTime');
 							self::getLog()->do503($secsToGo, "Blocked by login security setting.");
@@ -991,8 +1049,8 @@ class wordfence {
 					}
 				}
 				if(wfConfig::get('loginSec_lockInvalidUsers')){
-					if(strlen($_POST['log']) > 0 && preg_match('/[^\r\s\n\t]+/', $_POST['log'])){
-						self::lockOutIP($IP, "Used an invalid username '" . $_POST['log'] . "' to try to sign in.");
+					if(strlen($username) > 0 && preg_match('/[^\r\s\n\t]+/', $username)){
+						self::lockOutIP($IP, "Used an invalid username '" . $username . "' to try to sign in.");
 					}
 					require('wfLockedOut.php');
 				}
@@ -1006,7 +1064,7 @@ class wordfence {
 					$tries = 1;
 				}
 				if($tries >= wfConfig::get('loginSec_maxFailures')){
-					self::lockOutIP($IP, "Exceeded the maximum number of login failures which is: " . wfConfig::get('loginSec_maxFailures') . ". The last username they tried to sign in with was: '" . $_POST['log'] . "'");
+					self::lockOutIP($IP, "Exceeded the maximum number of login failures which is: " . wfConfig::get('loginSec_maxFailures') . ". The last username they tried to sign in with was: '" . $username . "'");
 					require('wfLockedOut.php');
 				}
 				set_transient($tKey, $tries, wfConfig::get('loginSec_countFailMins') * 60);
@@ -1023,7 +1081,7 @@ class wordfence {
 		}
 
 		if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password') && wfConfig::get('loginSec_maskLoginErrors')){
-			return new WP_Error( 'incorrect_password', sprintf( __( '<strong>ERROR</strong>: The username or password you entered is incorrect. <a href="%2$s" title="Password Lost and Found">Lost your password</a>?' ), $_POST['log'], wp_lostpassword_url() ) );
+			return new WP_Error( 'incorrect_password', sprintf( __( '<strong>ERROR</strong>: The username or password you entered is incorrect. <a href="%2$s" title="Password Lost and Found">Lost your password</a>?' ), $username, wp_lostpassword_url() ) );
 		}
 		return $authUser;
 	}
@@ -1747,7 +1805,7 @@ class wordfence {
 		} else {
 			$opts['alertEmails'] = '';
 		}
-		$opts['scan_exclude'] = preg_replace('/[\r\n\s\t]+/', '', $opts['scan_exclude']);
+		$opts['scan_exclude'] = wfUtils::cleanupOneEntryPerLine($opts['scan_exclude']);
 		$whiteIPs = array();
 		foreach(explode(',', preg_replace('/[\r\n\s\t]+/', '', $opts['whitelisted'])) as $whiteIP){
 			if(strlen($whiteIP) > 0){
@@ -1851,7 +1909,7 @@ class wordfence {
 				wfConfig::set($key, $val);
 			}
 		}
-		if($regenerateHtaccess){
+		if($regenerateHtaccess && wfConfig::get('cacheType') == 'falcon'){
 			wfCache::addHtaccessCode('add');
 		}
 
@@ -1880,8 +1938,13 @@ class wordfence {
 			wfConfig::set('email_summary_enabled', 0);
 			wfActivityReport::disableCronJob();
 		}
-		
-		
+
+		if (wfConfig::get('other_hideWPVersion')) {
+			wfUtils::hideReadme();
+		} else {
+			wfUtils::showReadme();
+		}
+
 		$paidKeyMsg = false;
 
 
@@ -1977,10 +2040,11 @@ class wordfence {
 	 */
 	public static function ajax_blockIPUARange_callback(){
 		$ipRange = trim($_POST['ipRange']);
+		$hostname = trim($_POST['hostname']);
 		$uaRange = trim($_POST['uaRange']);
 		$referer = trim($_POST['referer']);
 		$reason = trim($_POST['reason']);
-		if (preg_match('/\|+/', $ipRange . $uaRange . $referer)) {
+		if (preg_match('/\|+/', $ipRange . $uaRange . $referer . $hostname)) {
 			return array('err' => 1, 'errorMsg' => "You are not allowed to include a pipe character \"|\" in your IP range, browser pattern or referer");
 		}
 		if ((!$ipRange) && wfUtils::isUABlocked($uaRange)) {
@@ -2006,7 +2070,10 @@ class wordfence {
 			}
 			$ipRange = wfUtils::inet_ntop($ip1) . '-' . wfUtils::inet_ntop($ip2);
 		}
-		$range = $ipRange . '|' . $uaRange . '|' . $referer;
+		if ($hostname && !preg_match('/^[a-z0-9\.\*\-]+$/i', $hostname)) {
+			return array('err' => 1, 'errorMsg' => 'The Hostname you specified is not valid');
+		}
+		$range = $ipRange . '|' . $uaRange . '|' . $referer . '|' . $hostname;
 		self::getLog()->blockRange('IU', $range, $reason);
 		return array('ok' => 1);
 	}
@@ -2645,13 +2712,12 @@ class wordfence {
 		wfScanEngine::startScan();
 	}
 	public static function templateRedir(){
-		// prevent /?author=N scans from disclosing usernames.
-		if (wfConfig::get('loginSec_disableAuthorScan') && is_author() && !empty($_GET['author']) && is_numeric($_GET['author'])) {
-			wp_redirect(home_url());
+		if (!empty($_GET['wordfence_logHuman'])) {
+			self::ajax_logHuman_callback();
 			exit;
 		}
 
-		$wfFunc = get_query_var('_wfsf');
+		$wfFunc = !empty($_GET['_wfsf']) && is_string($_GET['_wfsf']) ? $_GET['_wfsf'] : '';
 
 		//Logging
 		self::doEarlyAccessLogging();
@@ -2779,21 +2845,44 @@ wfscr.src = url;
 EOL;
 	}
 	public static function wfLogHumanHeader(){
-		$URL = admin_url('admin-ajax.php?action=wordfence_logHuman&hid=' . wfUtils::encrypt(self::$hitID));
-		$URL = preg_replace('/^https?:/i', '', $URL);
+		$URL = home_url('/?wordfence_logHuman=1&hid=' . wfUtils::encrypt(self::$hitID));
+		$URL = addslashes(preg_replace('/^https?:/i', '', $URL));
 		#Load as external script async so we don't slow page down.
-		echo <<<EOL
+		echo <<<HTML
 <script type="text/javascript">
 (function(url){
-if(/(?:Chrome\/26\.0\.1410\.63 Safari\/537\.31|WordfenceTestMonBot)/.test(navigator.userAgent)){ return; }
-var wfscr = document.createElement('script');
-wfscr.type = 'text/javascript';
-wfscr.async = true;
-wfscr.src = url + '&r=' + Math.random();
-(document.getElementsByTagName('head')[0]||document.getElementsByTagName('body')[0]).appendChild(wfscr);
+	if(/(?:Chrome\/26\.0\.1410\.63 Safari\/537\.31|WordfenceTestMonBot)/.test(navigator.userAgent)){ return; }
+	var addEvent = function(evt, handler) {
+		if (window.addEventListener) {
+			document.addEventListener(evt, handler, false);
+		} else if (window.attachEvent) {
+			document.attachEvent('on' + evt, handler);
+		}
+	};
+	var removeEvent = function(evt, handler) {
+		if (window.removeEventListener) {
+			document.removeEventListener(evt, handler, false);
+		} else if (window.detachEvent) {
+			document.detachEvent('on' + evt, handler);
+		}
+	};
+	var evts = 'contextmenu dblclick drag dragend dragenter dragleave dragover dragstart drop keydown keypress keyup mousedown mousemove mouseout mouseover mouseup mousewheel scroll'.split(' ');
+	var logHuman = function() {
+		var wfscr = document.createElement('script');
+		wfscr.type = 'text/javascript';
+		wfscr.async = true;
+		wfscr.src = url + '&r=' + Math.random();
+		(document.getElementsByTagName('head')[0]||document.getElementsByTagName('body')[0]).appendChild(wfscr);
+		for (var i = 0; i < evts.length; i++) {
+			removeEvent(evts[i], logHuman);
+		}
+	};
+	for (var i = 0; i < evts.length; i++) {
+		addEvent(evts[i], logHuman);
+	}
 })('$URL');
 </script>
-EOL;
+HTML;
 	}
 	public static function shutdownAction(){
 	}
@@ -2934,10 +3023,6 @@ EOL;
 	}
 
 	public static function initAction(){
-		global $wp;
-		if (!is_object($wp)) return; //Suggested fix for compatability with "Portable phpmyadmin"
-
-		$wp->add_query_var('_wfsf');
 		if(wfConfig::liveTrafficEnabled() && (! wfConfig::get('disableCookies', false)) ){
 			self::setCookie();
 		}
@@ -3155,6 +3240,15 @@ EOL;
 			}
 		}
 	}
+	public static function replaceVersion($url)
+	{
+		global $wp_version;
+		static $version = null;
+		if ($version === null) {
+			$version = wp_hash($wp_version . WORDFENCE_VERSION);
+		}
+		return preg_replace("/([&;\?]ver)=[0-9\.]+/", "$1={$version}", $url);
+	}
 	public static function genFilter($gen, $type){
 		if(wfConfig::get('other_hideWPVersion')){
 			return '';
@@ -3221,10 +3315,10 @@ EOL;
 		return $approved;
 	}
 	public static function getMyHomeURL(){
-		return admin_url('admin.php?page=Wordfence', 'http');
+		return network_admin_url('admin.php?page=Wordfence', 'http');
 	}
 	public static function getMyOptionsURL(){
-		return admin_url('admin.php?page=WordfenceSecOpt', 'http');
+		return network_admin_url('admin.php?page=WordfenceSecOpt', 'http');
 	}
 
 	public static function alert($subject, $alertMsg, $IP){
@@ -3477,6 +3571,37 @@ EOL;
 				break;
 		}
 		return array('ok' => 1);
+	}
+
+
+	/**
+	 * Modify the query to prevent username enumeration.
+	 *
+	 * @param array $query_vars
+	 * @return array
+	 */
+	public static function preventAuthorNScans($query_vars) {
+		if (wfConfig::get('loginSec_disableAuthorScan') && !is_admin() &&
+			!empty($query_vars['author']) && is_numeric(preg_replace('/[^0-9]/', '', $query_vars['author'])) &&
+			(
+				(isset($_GET['author']) && is_numeric(preg_replace('/[^0-9]/', '', $_GET['author']))) ||
+				(isset($_POST['author']) && is_numeric(preg_replace('/[^0-9]/', '', $_POST['author'])))
+			)
+		) {
+			$query_vars['author'] = -1;
+		}
+		return $query_vars;
+	}
+
+
+	/**
+	 * @param WP_Upgrader $updater
+	 * @param array $hook_extra
+	 */
+	public static function hideReadme($updater, $hook_extra = null) {
+		if (wfConfig::get('other_hideWPVersion')) {
+			wfUtils::hideReadme();
+		}
 	}
 }
 ?>

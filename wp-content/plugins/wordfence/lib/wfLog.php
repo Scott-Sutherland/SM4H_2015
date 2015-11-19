@@ -90,6 +90,25 @@ class wfLog {
 				return;
 			}
 
+			if ($type == '404') {
+				$allowed404s = wfConfig::get('allowed404s');
+				if (is_string($allowed404s)) {
+					$allowed404s = array_filter(explode("\n", $allowed404s));
+					$allowed404sPattern = '';
+					foreach ($allowed404s as $allowed404) {
+						$allowed404sPattern .= preg_replace('/\\\\\*/', '.*?', preg_quote($allowed404, '/')) . '|';
+					}
+					$uri = $_SERVER['REQUEST_URI'];
+					if (($index = strpos($uri, '?')) !== false) {
+						$uri = substr($uri, 0, $index);
+					}
+					if ($allowed404sPattern && preg_match('/^' . substr($allowed404sPattern, 0, -1) . '$/i', $uri)) {
+						return;
+					}
+				}
+			}
+
+
 			if($type == '404'){
 				$table = $this->scanTable;
 			} else if($type == 'hit'){
@@ -103,23 +122,6 @@ class wfLog {
 			//end block moved into "is fw enabled" section
 
 			//Range blocking was here. Moved to wordfenceClass::veryFirstAction
-
-			if(wfConfig::get('blockFakeBots')){
-				if(wfCrawl::isGooglebot() && (! wfCrawl::verifyCrawlerPTR($this->googlePattern, $IP) )){
-					$this->blockIP($IP, "Fake Google crawler automatically blocked");
-					wordfence::status(2, 'info', "Blocking fake Googlebot at IP $IP");
-				}
-			}
-			if(wfConfig::get('bannedURLs', false)){
-				$URLs = explode(',', wfConfig::get('bannedURLs'));
-				foreach($URLs as $URL){
-					if($_SERVER['REQUEST_URI'] == trim($URL)){
-						$this->blockIP($IP, "Accessed a banned URL.");
-						$this->do503(3600, "Accessed a banned URL.");
-						//exits
-					}
-				}
-			}
 
 			if(wfConfig::get('maxGlobalRequests') != 'DISABLED' && $hitsPerMinute > wfConfig::get('maxGlobalRequests')){ //Applies to 404 or pageview
 				$this->takeBlockingAction('maxGlobalRequests', "Exceeded the maximum global requests per minute for crawlers or humans.");
@@ -145,11 +147,6 @@ class wfLog {
 						}
 					}
 				}
-			}
-			if(wfConfig::get('other_blockBadPOST') == '1' && $_SERVER['REQUEST_METHOD'] == 'POST' && empty($_SERVER['HTTP_USER_AGENT']) && empty($_SERVER['HTTP_REFERER'])){
-				$this->blockIP($IP, "POST received with blank user-agent and referer");
-				$this->do503(3600, "POST received with blank user-agent and referer");
-				//exits
 			}
 			if(isset($_SERVER['HTTP_USER_AGENT']) && wfCrawl::isCrawler($_SERVER['HTTP_USER_AGENT'])){
 				if($type == 'hit' && wfConfig::get('maxRequestsCrawlers') != 'DISABLED' && $hitsPerMinute > wfConfig::get('maxRequestsCrawlers')){
@@ -262,6 +259,7 @@ class wfLog {
 	 * @return bool
 	 */
 	public function blockRange($blockType, $range, $reason){
+		$reason = stripslashes($reason);
 		$this->getDB()->queryWrite("insert IGNORE into " . $this->ipRangesTable . " (blockType, blockString, ctime, reason, totalBlocked, lastBlocked) values ('%s', '%s', unix_timestamp(), '%s', 0, 0)", $blockType, $range, $reason);
 		wfCache::updateBlockedIPs('add');
 		return true;
@@ -314,6 +312,9 @@ class wfLog {
 			} else {
 				$elem['refererPattern'] = "Allow visitors arriving from all websites";
 			}
+			if (! empty($blockDat[3])) {
+				$elem['hostnamePattern'] = $blockDat[3];
+			}
 			$elem['patternDisabled'] = (wfConfig::get('cacheType') == 'falcon' && $numBlockElements > 1) ? true : false;
 		}
 		return $results;
@@ -361,6 +362,7 @@ class wfLog {
 	}
 	public function lockOutIP($IP, $reason){
 		if($this->isWhitelisted($IP)){ return false; }
+		$reason = stripslashes($reason);
 		$this->getDB()->queryWrite("insert into " . $this->lockOutTable . " (IP, blockedTime, reason) values (%s, unix_timestamp(), '%s') ON DUPLICATE KEY update blockedTime=unix_timestamp(), reason='%s'",
 			wfUtils::inet_pton($IP),
 			$reason,
@@ -477,7 +479,8 @@ class wfLog {
 				$headers[$matches[1]] = $v;
 			}
 		}
-		$this->getDB()->queryWrite("insert into " . $this->hitsTable . " (ctime, is404, isGoogle, IP, userID, newVisit, URL, referer, UA) values (%f, %d, %d, %s, %s, %d, '%s', '%s', '%s')", 
+		$ua = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+		$this->getDB()->queryWrite("insert into " . $this->hitsTable . " (ctime, is404, isGoogle, IP, userID, newVisit, URL, referer, UA, jsRun) values (%f, %d, %d, %s, %s, %d, '%s', '%s', '%s', %d)",
 			sprintf('%.6f', microtime(true)),
 			(is_404() ? 1 : 0),
 			(wfCrawl::isGoogleCrawler() ? 1 : 0),
@@ -486,7 +489,8 @@ class wfLog {
 			(wordfence::$newVisit ? 1 : 0),
 			wfUtils::getRequestedURL(),
 			(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : ''),
-			(isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '')
+			$ua,
+			(int) (isset($_COOKIE['wordfence_verifiedHuman']) && wp_verify_nonce($_COOKIE['wordfence_verifiedHuman'], 'wordfence_verifiedHuman' . $ua . wfUtils::getIP()))
 			);
 		return $this->getDB()->querySingle("select last_insert_id()");
 	}
@@ -691,7 +695,6 @@ class wfLog {
 		}
 	}
 	public function logHitOK(){
-		if(stristr($_SERVER['REQUEST_URI'], 'wp-admin/admin-ajax.php')){ return false; } //Don't log wordpress ajax requests.
 		if(is_admin()){ return false; } //Don't log admin pageviews
 		if(isset($_SERVER['HTTP_USER_AGENT'])){
 			if(preg_match('/WordPress\/' . $this->wp_version . '/i', $_SERVER['HTTP_USER_AGENT'])){ return false; } //Ignore requests generated by WP UA.
@@ -738,6 +741,7 @@ class wfLog {
 			return;
 		}
 		$IPnum = wfUtils::inet_pton($IP);
+		$hostname = null;
 
 		//New range and UA pattern blocking:
 		$r1 = $this->getDB()->querySelect("select id, blockType, blockString from " . $this->ipRangesTable);
@@ -762,6 +766,15 @@ class wfLog {
 					}
 
 					if (strcmp($IPnum, $start_range) >= 0 && strcmp($IPnum, $end_range) <= 0) {
+						$ipRangeBlocked = true;
+					}
+				}
+				if (! empty($bDat[3])) {
+					$ipRange = true; /* We reuse the ipRangeBlocked variable */
+					if ($hostname === null) {
+						$hostname = wfUtils::reverseLookup($IP);
+					}
+					if (preg_match(wfUtils::patternToRegex($bDat[3]), $hostname)) {
 						$ipRangeBlocked = true;
 					}
 				}
