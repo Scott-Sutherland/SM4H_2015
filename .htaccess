@@ -1,7 +1,6 @@
 Order deny,allow
 Deny from all
-Allow from 86.175.139.181
-Allow from 84.19.38.242
+Allow from 86.150.78.19
 
 RewriteEngine On
 RewriteBase /
