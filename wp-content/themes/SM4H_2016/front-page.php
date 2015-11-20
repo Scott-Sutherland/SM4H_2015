@@ -12,7 +12,7 @@
 	
 		<section class="container-full">
 			<div class="section-title">
-				<h1>Subtitle Line about Motorhomess</h1>
+				<h1>Subtitle Line about Something</h1>
 				<h4>Lorem ipsum dolor sit amet, mi urna et lorem aenean molestie</h4>
 			</div>
 			<div class="container panel-links">
