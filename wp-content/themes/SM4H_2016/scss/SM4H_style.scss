@@ -60,7 +60,7 @@ body {
 }
 
 .container {
-  max-width: 1024px;
+  max-width: 1280px;
   padding: 0 0px;
   width: 100%;
 
@@ -240,10 +240,10 @@ header {
 
 /* =============== 4.0 Site Banner =============== */
 #site-banner {
-	padding-top: 70px;
+	padding-top: 10px;
 
 	@media #{$small}{
-		padding-top: 150px;
+		padding-top: 60px;
 		padding-bottom: 60px;
 	}
 
@@ -321,6 +321,11 @@ header {
 
 #site-content {
 	padding-bottom: 40px;
+
+	@media #{$small}{
+		padding: 0 15px;
+	}
+
 	section {
 		margin: 30px auto;
 
@@ -356,7 +361,7 @@ header {
 
 	.content-main {
 		margin: 0;
-		padding: 0 0 0 0;
+		padding: 0 15px;
 
 		@media #{$medium}{
 			border-right: 1px solid #ccc;
@@ -466,23 +471,22 @@ header {
 
 /* 5.1 Home Content */
 #home-page {
+
 	.full-text {
 		margin: 30px 0;
-		padding: 0 15px;
 
-		@media #{$small}{
+		@media #{$medium}{
 			-webkit-column-count: 2; /* Chrome, Safari, Opera */
 			-moz-column-count: 2; /* Firefox */
 			column-count: 2;
 			-webkit-column-gap: 30px; /* Chrome, Safari, Opera */
 			-moz-column-gap: 30px; /* Firefox */
 			column-gap: 30px;
-			padding: 0 15px;
 		}
 
 		p {
 			margin: 0;
-			padding: 0 0 10px;
+			padding: 0 15px 10px;
 			text-align: left;
 		}
 
@@ -495,6 +499,7 @@ header {
 			text-decoration: underline;
 		}
 	}
+
 } // Close #home-page (Content)
 
 /* Tariff Content */
@@ -502,7 +507,6 @@ header {
 #tariff {
 
 	.content-main {
-		padding: 0 15px;
 
 		table.tariff-table {
 			margin-bottom: 10px;
@@ -538,10 +542,282 @@ header {
 	}
 } // Close #tariff-page (Content)
 
+#enquiry-form {
+
+	.content-main {
+		padding: 0 0 50px;
+
+		@media #{$medium}{
+			padding: 0 30px 50px 15px;
+		}
+
+		.form-section {
+			background: #f9f9f9;
+			margin-bottom: 15px;
+			overflow: hidden;
+			padding: 15px;
+
+			&-title {
+				border-bottom: solid 1px $secondary;
+				font-size: 20px;
+				font-weight: 700;
+				padding: 10px 0;
+				position: relative;
+
+				.complete-section {
+					color: green;
+					display: none;
+					font-size: 14px;
+					font-weight: 300;
+					position: absolute;
+					right: 15px;
+					top: 15px;
+				}
+				.incomplete-section {
+					color: red;
+					display: none;
+					font-size: 14px;
+					font-weight: 300;
+					position: absolute;
+					right: 15px;
+					top: 15px;
+				}
+			}
+
+			&#hire-details {
+				.form-section-title { 
+					margin-bottom: 20px;
+				}
+			}
+
+			&-subtitle {
+				clear: both;
+				font-size: 16px;
+				padding: 20px 0;
+			}
+
+			&-inputs {
+				overflow: hidden;
+
+				.input-group {
+					margin: 5px 0;
+
+					&[class*="col-"] {
+						width: 100%;
+
+					    @media #{$small}{
+					    	float: left;
+					        padding-right: 10px;
+					        width: 50%;
+					    }
+					}
+
+					&.clear {
+						clear: both;
+					}
+
+					.input-group-addon {
+					    background: $secondary;
+					    border-radius: 0;
+					    border: none;
+					    color: white;
+					}
+
+					input {
+					    background: darken(#ffffff, 5%);
+					    border: 0;
+					    box-shadow: none;
+					    position: relative;
+					}
+
+					.verified {
+					    background: rgba(green, 0.3);
+					    border-left: green solid 1px;
+					    bottom: 0;
+					    color: green;
+					    display: none;
+					    position: absolute;
+					    right: 0px;
+					    text-align: center;
+					    top: 0;
+					    width: 40px;
+					    z-index: 10000;
+
+					    @media #{$medium}{
+					    	right: 10px;
+					    }
+
+					    span {
+					    	top: 7px;
+					    }
+					}
+
+					.error {
+					    background: rgba(red, 0.3);
+					    border-left: red solid 1px;
+					    bottom: 0;
+					    color: red;
+					    display: none;
+					    position: absolute;
+					    right: 0;
+					    text-align: center;
+					    top: 0;
+					    width: 40px;
+					    z-index: 10000;
+
+					    @media #{$medium}{
+					    	right: 10px;
+					    }
+
+					    span {
+					    	top: 7px;
+					    }
+					}
+
+					&.error-field {
+					    .error {
+					        display: table-cell;
+					    }
+					}
+
+					&.verified-field {
+					    .verified {
+					        display: table-cell;
+					    }
+					}
+
+					label {
+						color: $primary;
+						font-size: 16px;
+						font-weight: 300;
+						padding: 5px 10px;
+						width: 100%;
+
+						&.error-select {
+							background: rgba(red, 0.1);
+							color: red; 
+						}
+						&.verified-select {
+							color: green; 
+						}
+					}
+
+					select {
+						-webkit-appearance: none;
+					   -moz-appearance: none;
+					   appearance: none;
+					   background: darken(#ffffff, 5%) url('../assets/icons/arrow_down.png') 97% center no-repeat;
+					   background-size: 20px 20px;
+					   border: 0;
+					   border-radius: 0;
+					   box-shadow: none;
+					   font-size: 14px;
+					   padding: 10px;
+					   position: relative;
+					   width: 100%;
+					}
+
+				} // Close .input-group
+
+				.FormLabelRadio {
+					margin: 15px 0 5px;
+					padding: 10px 0;
+
+					@media #{$medium}{
+						padding: 10px;
+					}
+				}
+				.FormFieldRadio {
+
+					@media #{$small}{
+						margin-top: 15px;
+					}
+
+					.radio_yes, .radio_no {
+						background: #e1e1e1;
+						cursor: pointer;
+						margin: 0 0 15px;
+						padding: 10px 0;
+						text-align: center;
+					}
+
+					.radio_yes.selected {
+						background: green;
+						color: white;
+					}
+					.radio_no.selected {
+						background: red;
+						color: white;
+					}
+					
+				}
+
+				#airport-field, #railway-field {
+					display: none;
+				}
+
+				#child-seats-field {
+					margin-top: 40px;
+				}
+
+				#booster-seats-field {
+					@media #{$small}{
+						margin-top: 40px;
+					}
+				}
+			
+			} // Close .form-section-inputs
+
+		} // Close .form-section
+
+		.submit-section {
+			padding: 15px;
+			overflow: hidden;
+
+			#SubmitBtn {
+				background: $secondary;
+				border: 0;
+				color: white;
+				padding: 10px 0;
+				width: 100%;
+
+				@media #{$small}{
+					float: right;
+					max-width: 300px;
+				}
+			}
+
+			.submit-errors {
+				display: none;
+			}
+
+			&.errors_found {
+				.submit-errors {
+					color: red;
+					display: block;
+					margin-top: 10px;
+					text-align: center;
+
+					@media #{$small}{
+						display: inline;
+						float: right;
+						margin-right: 30px;
+						text-align: right;
+					}
+				}
+			}
+
+		}
+
+	} // Close .content-main
+
+} // Close #enquiry-page
+
 #contact-page {
 
 	.contact-module {
 		margin: 0 0 30px;
+
 		.icon {
 
 		}

@@ -1,7 +1,3 @@
-Order deny,allow
-Deny from all
-Allow from 86.150.78.19
-
 RewriteEngine On
 RewriteBase /
 RewriteCond %{HTTP_HOST} ^scottishmotorhomes4hire.co.uk [NC]

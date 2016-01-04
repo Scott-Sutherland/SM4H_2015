@@ -4,7 +4,7 @@
 	
 	<div id="site-banner">
 	    <div class="banner-highlight">
-	        <h2></h2> 
+	        <h2>&nbsp;</h2> 
 	    </div>
 	</div>
 	<!-- End #site-banner -->
