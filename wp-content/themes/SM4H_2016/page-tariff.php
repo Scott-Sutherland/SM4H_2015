@@ -1,4 +1,4 @@
-<?php /* Template Name : Tariff Page */ ?>
+<!-- <?php /* Template Name : Tariff Page */ ?> -->
 
 <?php get_header(); ?>
 	
@@ -21,33 +21,77 @@
                     
                    	<?php the_field('top_content'); ?>
 
-                    <table cellpadding="0" cellspacing="0" width="100%" class="tariff-table">
-                        <tbody>
-                            <tr>
-                                <td>&nbsp;</td>
-                                <td>Weekend (3 Nights)</td>
-                                <td>Weekly</td>
-                            </tr>
-                            <?php 
+                    <div id="tariff-table-container">
 
-                            if ( have_rows('tariff_table') ) : while ( have_rows('tariff_table') ) : the_row();
+                      <!-- Nav tabs -->
+                      <ul class="nav nav-tabs" role="tablist">
+                        <li role="presentation" class="active"><a href="#six-berth" aria-controls="six-berth" role="tab" data-toggle="tab">6 Berth Pricing</a></li>
+                        <li role="presentation"><a href="#four-berth" aria-controls="four-berth" role="tab" data-toggle="tab">4 Berth Pricing</a></li>
+                      </ul>
 
-	                            $month = get_sub_field('months');
-								$weekend_rate = get_sub_field('weekend_rate');
-								$week_rate = get_sub_field('week_rate');
+                      <!-- Tab panes -->
+                      <div class="tab-content">
+                        <div role="tabpanel" class="tab-pane active" id="six-berth">
+                            <table cellpadding="0" cellspacing="0" width="100%" class="tariff-table">
+                                <tbody>
+                                    <tr>
+                                        <td>&nbsp;</td>
+                                        <td>Weekend (3 Nights)</td>
+                                        <td>Weekly</td>
+                                    </tr>
+                                    <?php 
 
-                            ?>
+                                    if ( have_rows('six_tariff_table') ) : while ( have_rows('six_tariff_table') ) : the_row();
 
-                            	<tr>
-									<td><?php echo $month ?></td>
-									<td>£<?php echo $weekend_rate ?></td>
-									<td>£<?php echo $week_rate ?></td>
-                            	</tr>
+                                        $month = get_sub_field('months');
+                                        $weekend_rate = get_sub_field('weekend_rate');
+                                        $week_rate = get_sub_field('week_rate');
 
-                            <?php endwhile; endif; wp_reset_query();?>
+                                    ?>
 
-                        </tbody>
-                    </table>
+                                        <tr>
+                                            <td><?php echo $month ?></td>
+                                            <td>£<?php echo $weekend_rate ?></td>
+                                            <td>£<?php echo $week_rate ?></td>
+                                        </tr>
+
+                                    <?php endwhile; endif; wp_reset_query();?>
+
+                                </tbody>
+                            </table>
+                        </div>
+                        <div role="tabpanel" class="tab-pane" id="four-berth">
+                            <table cellpadding="0" cellspacing="0" width="100%" class="tariff-table">
+                                <tbody>
+                                    <tr>
+                                        <td>&nbsp;</td>
+                                        <td>Weekend (3 Nights)</td>
+                                        <td>Weekly</td>
+                                    </tr>
+                                    <?php 
+
+                                    if ( have_rows('four_tariff_table') ) : while ( have_rows('four_tariff_table') ) : the_row();
+
+                                        $month = get_sub_field('months');
+                                        $weekend_rate = get_sub_field('weekend_rate');
+                                        $week_rate = get_sub_field('week_rate');
+
+                                    ?>
+
+                                        <tr>
+                                            <td><?php echo $month ?></td>
+                                            <td>£<?php echo $weekend_rate ?></td>
+                                            <td>£<?php echo $week_rate ?></td>
+                                        </tr>
+
+                                    <?php endwhile; endif; wp_reset_query();?>
+
+                                </tbody>
+                            </table>
+                        </div>
+                      </div>
+
+                    </div>
 
                     <?php the_field('bottom_content'); ?>
 
