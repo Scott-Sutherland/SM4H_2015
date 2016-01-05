@@ -16,7 +16,7 @@
 		wp_enqueue_script( 'bootstrap-js', get_template_directory_uri() . '/js/bootstrap.min.js' );
 		wp_register_script( 'form-js', get_template_directory_uri() . '/js/min/form-validation-min.js', array() , false, true );
 
-		if(is_page(38) || is_page('thank-you') || is_page(39)) : {
+		if(is_page('enquiry')) : {
 			wp_enqueue_script( 'form-js' );
 		} endif;
 	}
