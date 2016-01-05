@@ -39,7 +39,7 @@ $mailer = Swift_Mailer::newInstance($transport);
 // Create a message
 $message = Swift_Message::newInstance('Motorhome - New Enquiry!')
   ->setFrom('enquiries@scottishmotorhomes4hire.co.uk')
-  ->setTo(array('scott@we-shape.co.uk'=>'Motorhome Enquiry'))
+  ->setTo(array('robbie@scottishmotorhomes4hire.co.uk'=>'Motorhome Enquiry'))
   ->setBody(
 		'<!DOCTYPE html><html class="no-js">' .
 		'<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html {margin: 10px 0; padding: 0; font-family: helvetica, arial, sans-serif; font-size: 14px;}table {border-collapse: collapse;}.width{margin: 0 auto; width: 320px;}.header-table tr td{padding: 20px 15px 10px !important;}.content-table {margin-top: 5px !important;}.content-table tr {border-top: solid 1px #cccccc;}.content-table tr td{border: solid 1px #cccccc; padding: 10px 15px;}' .
