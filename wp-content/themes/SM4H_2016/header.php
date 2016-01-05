@@ -5,8 +5,11 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
+    <meta name="robots" content="<?php echo the_field('index'); ?>, <?php the_field('follow'); ?>">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <title><?php the_field('page_title'); ?> | ScottishMotorhomes4Hire</title>
+
+    <meta name="description" content="<?php the_field('page_description'); ?>">
     
     <?php wp_enqueue_script("jquery"); ?>
     <?php wp_head(); ?>
